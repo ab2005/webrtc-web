@@ -16,9 +16,15 @@ function onMediaStreamCreated(stream) {
   } else {
     video.src = stream;
   }
+  console.log('tracks', stream.getVideoTracks());
 }
 function errorCallback(error) {
   console.log('navigator.getUserMedia error: ', error);
+}
+
+// stopVideo(video)
+function stopVideo(video) {
+  video.stream.getVideoTracks()[0].stop();
 }
 
 navigator.getUserMedia(constraints, onMediaStreamCreated, errorCallback);
