@@ -1,13 +1,18 @@
 'use strict';
 
 var startButton = document.getElementById('startButton');
+var stopButton = document.getElementById('stopButton');
 var callButton = document.getElementById('callButton');
 var hangupButton = document.getElementById('hangupButton');
+var stopButton = document.getElementById('stopButton');
 callButton.disabled = true;
 hangupButton.disabled = true;
+stopButton.disabled = true;
+
 startButton.onclick = start;
 callButton.onclick = call;
 hangupButton.onclick = hangup;
+stopButton.onclick = stop;
 
 var startTime;
 var localVideo = document.getElementById('localVideo');
@@ -67,7 +72,7 @@ function gotStream(stream) {
 
 function start() {
   trace('Requesting local stream');
-//  startButton.disabled = true;
+  stopButton.disabled = false;
   navigator.mediaDevices.getUserMedia(localStreamConstraints)
   .then(gotStream)
   .catch(function(e) {
@@ -75,9 +80,16 @@ function start() {
   });
 }
 
+function stop() {
+    localVideo.srcObject.getVideoTracks()[0].stop();
+    startButton.disabled = false;
+    stopButton.disabled = true;
+}
+
 function call() {
   callButton.disabled = true;
   hangupButton.disabled = false;
+  stopButton.disabled = true;
   trace('Starting call');
   startTime = window.performance.now();
   var videoTracks = localStream.getVideoTracks();
@@ -226,6 +238,7 @@ function hangup() {
   pc2 = null;
   hangupButton.disabled = true;
   callButton.disabled = false;
+  stopButton.disabled = false;
 }
 
 
