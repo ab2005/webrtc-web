@@ -1,5 +1,6 @@
 'use strict';
-
+// ----------- UI ------------
+// UI: Buttons
 var startButton = document.getElementById('startButton');
 var stopButton = document.getElementById('stopButton');
 var callButton = document.getElementById('callButton');
@@ -8,31 +9,25 @@ var stopButton = document.getElementById('stopButton');
 callButton.disabled = true;
 hangupButton.disabled = true;
 stopButton.disabled = true;
-
 startButton.onclick = start;
 callButton.onclick = call;
 hangupButton.onclick = hangup;
 stopButton.onclick = stop;
 
+// UI: Video 
 var startTime;
 var localVideo = document.getElementById('localVideo');
 var remoteVideo = document.getElementById('remoteVideo');
-
 localVideo.addEventListener('loadedmetadata', function() {
-  trace('Local video videoWidth: ' + this.videoWidth +
-    'px,  videoHeight: ' + this.videoHeight + 'px');
+  trace('Local video: ' + this.videoWidth + 'x' + this.videoHeight + 'px');
 });
-
 remoteVideo.addEventListener('loadedmetadata', function() {
-  trace('Remote video videoWidth: ' + this.videoWidth +
-    'px,  videoHeight: ' + this.videoHeight + 'px');
+  trace('Remote video: ' + this.videoWidth + 'x' + this.videoHeight + 'px');
 });
-
+// This is called when remote video is starting
 remoteVideo.onresize = function() {
-  trace('Remote video size changed to ' +
-    remoteVideo.videoWidth + 'x' + remoteVideo.videoHeight);
-  // We'll use the first onresize callback as an indication that video has started
-  // playing out.
+  trace('Remote video changed: ' + remoteVideo.videoWidth + 'x' + remoteVideo.videoHeight);
+  // We'll use the first onresize callback as an indication that video has started playing out.
   if (startTime) {
     var elapsedTime = window.performance.now() - startTime;
     trace('Setup time: ' + elapsedTime.toFixed(3) + 'ms');
@@ -40,67 +35,51 @@ remoteVideo.onresize = function() {
   }
 };
 
+// -------------- LOCAL MEDIA: ---------- 
 var localStream;
-var localStreamConstraints = {
-  audio: false,
-  video: true
-};
-
-var pc1;
-var pc2;
-var offerOptions = {
-  offerToReceiveAudio: 1,
-  offerToReceiveVideo: 1
-};
-
-function getName(pc) {
-  return (pc === pc1) ? 'pc1' : 'pc2';
-}
-
-function getOtherPc(pc) {
-  return (pc === pc1) ? pc2 : pc1;
-}
-
-function gotStream(stream) {
-  trace('Received local stream');
-  localVideo.srcObject = stream;
-  // Add localStream to global scope so it's accessible from the browser console
-  window.localStream = localStream = stream;
-  startButton.disabled = true;
-  callButton.disabled = false;
-}
-
+// video only
+var localStreamConstraints = {audio:false, video:true};
 function start() {
   trace('Requesting local stream');
   stopButton.disabled = false;
   navigator.mediaDevices.getUserMedia(localStreamConstraints)
-  .then(gotStream)
+  .then(function(stream) {
+    trace('Received local stream');
+    localVideo.srcObject = stream;
+    // Add localStream to global scope so it's accessible from the browser console
+    window.localStream = localStream = stream;
+    startButton.disabled = true;
+    callButton.disabled = false;
+    var videoTracks = localStream.getVideoTracks();
+    var audioTracks = localStream.getAudioTracks();
+    if (videoTracks.length > 0) {
+      trace('Using video device: ' + videoTracks[0].label);
+    }
+    if (audioTracks.length > 0) {
+      trace('Using audio device: ' + audioTracks[0].label);
+    }  
+  })
   .catch(function(e) {
     alert('getUserMedia() error: ' + e.name);
   });
 }
-
 function stop() {
     localVideo.srcObject.getVideoTracks()[0].stop();
     startButton.disabled = false;
     stopButton.disabled = true;
 }
 
+// ------------ NETWORK -----------------
+var pc1, pc2;
+var offerOptions = {offerToReceiveAudio:1, offerToReceiveVideo:1};
 function call() {
   callButton.disabled = true;
   hangupButton.disabled = false;
   stopButton.disabled = true;
-  trace('Starting call');
+  trace('Starting call...');
   startTime = window.performance.now();
-  var videoTracks = localStream.getVideoTracks();
-  var audioTracks = localStream.getAudioTracks();
-  if (videoTracks.length > 0) {
-    trace('Using video device: ' + videoTracks[0].label);
-  }
-  if (audioTracks.length > 0) {
-    trace('Using audio device: ' + audioTracks[0].label);
-  }
   var servers = null;
+  
   // Add pc1 to global scope so it's accessible from the browser console
   window.pc1 = pc1 = new RTCPeerConnection(servers);
   trace('Created local peer connection object pc1');
@@ -119,7 +98,11 @@ function call() {
   pc2.oniceconnectionstatechange = function(e) {
     onIceStateChange(pc2, e);
   };
-  pc2.onaddstream = gotRemoteStream;
+  pc2.onaddstream = function(e) {
+    // Add remoteStream to global scope so it's accessible from the browser console
+    window.remoteStream = remoteVideo.srcObject = e.stream;
+    trace('pc2 received remote stream');
+  };
 
   pc1.addStream(localStream);
   trace('Added local stream to pc1');
@@ -163,6 +146,14 @@ function onCreateOfferSuccess(desc) {
   );
 }
 
+function getName(pc) {
+  return (pc === pc1) ? 'pc1' : 'pc2';
+}
+
+function getOtherPc(pc) {
+  return (pc === pc1) ? pc2 : pc1;
+}
+
 function onSetLocalSuccess(pc) {
   trace(getName(pc) + ' setLocalDescription complete');
 }
@@ -173,12 +164,6 @@ function onSetRemoteSuccess(pc) {
 
 function onSetSessionDescriptionError(error) {
   trace('Failed to set session description: ' + error.toString());
-}
-
-function gotRemoteStream(e) {
-  // Add remoteStream to global scope so it's accessible from the browser console
-  window.remoteStream = remoteVideo.srcObject = e.stream;
-  trace('pc2 received remote stream');
 }
 
 function onCreateAnswerSuccess(desc) {
